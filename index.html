@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heti órarend</title>
+<meta name="theme-color" content="#b9a7e6">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#faf7f2; --panel:#ffffff; --ink:#3f3b4f; --muted:#8c8799;
+    --line:#ebe5dc; --line-soft:#f5f0e9; --accent:#b9a7e6; --accent-ink:#5a4890;
+    --today:#fdf4e4; --now:#e98a9c; --hour-h:56px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI","Nunito",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:18px 24px 10px}
+  h1{font-size:22px;margin:0 8px 0 0;font-weight:700}
+  .weeknav{display:flex;align-items:center;gap:6px}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:7px 12px;transition:background .15s}
+  button:hover{background:#f5f0fb}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{background:#a993df}
+  button.danger{color:#b4475f;border-color:#f1cbd3}
+  button.danger:hover{background:#fdeef1}
+  .range{font-weight:600;min-width:230px;text-align:center}
+  .range small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+  .spacer{flex:1}
+  .tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tools select{font:inherit;border:1px solid var(--line);border-radius:8px;padding:5px 6px;background:var(--panel);color:var(--ink)}
+  .muted{color:var(--muted)}
+
+  /* kapcsoló */
+  .switch{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+  .field label.switch{display:inline-flex;font-size:14px;color:var(--ink);margin:0}
+  .switch .slider{display:block}
+  .switch input{position:absolute;opacity:0;width:0;height:0}
+  .slider{width:42px;height:24px;background:#e3dee9;border-radius:999px;position:relative;transition:.2s;flex:none}
+  .slider::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:.2s}
+  .switch input:checked + .slider{background:var(--accent)}
+  .switch input:checked + .slider::after{transform:translateX(18px)}
+  .switch input:focus-visible + .slider{outline:2px solid var(--accent-ink);outline-offset:2px}
+  .switch input:disabled + .slider{opacity:.45}
+  .switch.disabled{cursor:not-allowed;color:var(--muted)}
+
+  .calswitch{display:inline-flex;background:#efe9f6;border-radius:12px;padding:3px;gap:2px}
+  .calswitch button{border:none;background:transparent;border-radius:9px;padding:6px 14px;font-weight:600;color:var(--muted)}
+  .calswitch button:hover{background:#e6def2}
+  .calswitch button.on{background:#fff;color:var(--accent-ink);box-shadow:0 1px 3px rgba(60,40,80,.12)}
+  .calswitch button.on[data-cal=panni]{color:#a2456a}
+  .ppill{border-radius:999px;font-size:12px;padding:5px 12px;background:#f3f0ec;border-color:#e8e2da;color:var(--muted)}
+  .ppill.yes{background:#fbe3ec;border-color:#f2c3d4;color:#a2456a;font-weight:600}
+  .ppill.part{background:#fdf0f4;border-color:#f2d3de;color:#a2456a}
+  .ppill:hover{filter:brightness(.97)}
+  .head > div.dh{cursor:pointer;transition:background .15s}
+  .head > div.dh:hover{background:#faf5f7}
+  .head > div.dh.ro{cursor:default}
+  .head > div.panni{background:#fbe6ee}
+  .head > div.panni:hover{background:#f8dce7}
+  .head .heart{color:#d77a9b;font-size:11px;margin-right:3px}
+  .day.panni,.day.panni.weekend{background-color:#fdf0f4}
+  .body .day.panni.today{background-color:#fbe4ec}
+  .subsw{margin:10px 0 0 26px;padding-left:14px;border-left:2px solid #efe9f6}
+  .subsw .rechint{margin-left:52px}
+  .modal{max-height:calc(100vh - 32px);overflow:auto}
+  .ev.mirror{border-left-style:dashed;opacity:.9}
+  .ev .who{font-size:10px;font-weight:700;background:rgba(255,255,255,.65);border-radius:6px;padding:0 5px;margin-right:4px}
+  .notice{margin:0 24px 8px;padding:8px 12px;background:#f3eefc;border-radius:10px;color:var(--accent-ink);font-size:13px;display:none}
+  .notice button{padding:3px 9px;margin-left:8px;font-size:12px}
+
+  /* naptár */
+  .wrap{padding:0 24px 24px;overflow-x:auto}
+  .cal{min-width:820px;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 2px 10px rgba(80,60,40,.05)}
+  .head,.body{display:grid;grid-template-columns:62px repeat(7,1fr)}
+  .head{border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:3}
+  .head > div{padding:10px 8px;text-align:center;border-left:1px solid var(--line-soft)}
+  .head > div:first-child{border-left:none}
+  .head .dname{font-weight:600}
+  .head .ddate{font-size:12px;color:var(--muted)}
+  .head .today{background:var(--today)}
+  .head .today .ddate{color:#c0812f;font-weight:600}
+  .times{position:relative}
+  .times span{position:absolute;right:8px;font-size:11px;color:var(--muted);transform:translateY(-50%)}
+  .day{position:relative;border-left:1px solid var(--line-soft);cursor:copy;
+       background-image:linear-gradient(to bottom,var(--line) 1px,transparent 1px),linear-gradient(to bottom,var(--line-soft) 1px,transparent 1px);
+       background-size:100% var(--hour-h),100% calc(var(--hour-h)/2)}
+  .day.today{background-color:var(--today)}
+  .day.weekend{background-color:#fcfaf7}
+  .day.today.weekend{background-color:var(--today)}
+  .ev{position:absolute;border-radius:9px;padding:4px 7px;font-size:12px;line-height:1.3;overflow:hidden;cursor:pointer;
+      border-left:4px solid;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:transform .1s,box-shadow .1s}
+  .ev:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.1);z-index:2}
+  .ev .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev .h{opacity:.8;font-size:11px}
+  .ev .n{opacity:.8;font-size:11px;margin-top:2px;white-space:pre-wrap}
+  .ev .rec{position:absolute;top:3px;right:5px;font-size:11px;opacity:.7}
+  .ev.base{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.35) 0 6px,transparent 6px 12px)}
+  .nowline{position:absolute;left:0;right:0;height:2px;background:var(--now);z-index:2;pointer-events:none}
+  .nowline::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--now)}
+  .hint{padding:10px 24px 24px;color:var(--muted);font-size:12px}
+  .legend{display:inline-flex;align-items:center;gap:6px;margin-right:16px}
+  .legend i{display:inline-block;width:14px;height:14px;border-radius:4px;background:#e8e1f6;border-left:3px solid #b9a7e6}
+  .legend i.b{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.6) 0 3px,transparent 3px 6px)}
+
+  /* ablak */
+  .overlay{position:fixed;inset:0;background:rgba(60,50,70,.28);display:none;align-items:center;justify-content:center;z-index:10;padding:16px}
+  .overlay.open{display:flex}
+  .modal{background:var(--panel);border-radius:18px;width:100%;max-width:440px;padding:22px 22px 18px;box-shadow:0 12px 40px rgba(60,40,80,.2)}
+  .modal h2{margin:0 0 14px;font-size:18px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  .field input[type=text],.field input[type=time],.field select,.field textarea{
+    width:100%;font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #ece5fa}
+  .field input:disabled,.field select:disabled,.field textarea:disabled{background:#f7f5f2;color:var(--muted)}
+  .row{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px}
+  .swatches{display:flex;gap:8px;flex-wrap:wrap}
+  .swatches label{margin:0}
+  .swatches label{position:relative}
+  .swatches input{position:absolute;opacity:0;width:0;height:0;margin:0}
+  .swatches span{display:block;width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+  .swatches input:checked + span{border-color:var(--ink)}
+  .swatches input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+  .swatches input:disabled + span{cursor:not-allowed;opacity:.6}
+  .rechint{font-size:12px;color:var(--muted);margin:6px 0 0 52px}
+  .lockmsg{display:none;background:#fff6e6;color:#8a6420;border-radius:10px;padding:8px 10px;font-size:12px;margin-bottom:12px}
+  .err{color:#b4475f;font-size:12px;min-height:16px;margin-top:-4px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .actions .grow{flex:1}
+
+  .status{font-size:12px;padding:5px 10px;border-radius:999px;background:#eef6ef;color:#3d7350;white-space:nowrap}
+  .status.saving{background:#fff6e2;color:#8a6420}
+  .status.warn{background:#fdecef;color:#9b3b51}
+  .status.loading{background:#f1eef6;color:var(--muted)}
+  #sysNotice{background:#fff6e6;color:#8a6420}
+  .modal.small{max-width:360px}
+  .modal.small p{margin:0 0 16px;line-height:1.45;white-space:pre-line}
+  button.danger-solid{background:#e9a3b2;border-color:#e9a3b2;color:#fff}
+  button.danger-solid:hover{background:#df8ea0}
+  @media print{
+    header .weeknav button,header .tools,.notice,.hint{display:none!important}
+    body{background:#fff}
+    .wrap{padding:0;overflow:visible}
+    .cal{box-shadow:none;min-width:0}
+    .day{cursor:default}
+    .ev:hover{transform:none}
+    .nowline{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="calswitch" id="calSwitch" role="group" aria-label="Naptár választása">
+    <button type="button" data-cal="panni">Panni</button><button type="button" data-cal="gabor">Gábor</button>
+  </div>
+  <h1 id="calTitle">Panni órarendje</h1>
+  <div class="weeknav">
+    <button id="prev" title="Előző hét">‹</button>
+    <div class="range" id="range"></div>
+    <button id="next" title="Következő hét">›</button>
+    <button id="todayBtn">Ma</button>
+    <button type="button" class="ppill" id="panniPill" title="Kattintásra az egész hét átállítása. Egy-egy napot a nap nevére kattintva állíthatsz át."></button>
+  </div>
+  <div class="spacer"></div>
+  <div class="tools">
+    <label class="switch" title="Ha be van kapcsolva, az alap (hétről hétre ismétlődő) elemek módosíthatók">
+      <input type="checkbox" id="baseEdit"><span class="slider"></span> Alapok szerkesztése
+    </label>
+    <span class="muted">|</span>
+    <span class="muted">Idősáv:</span>
+    <select id="hStart" aria-label="Kezdő óra"></select>–<select id="hEnd" aria-label="Záró óra"></select>
+    <span class="status" id="status">Betöltés…</span>
+    <span class="muted" id="userBox"></span>
+    <button type="button" id="logoutBtn" style="display:none">Kilépés</button>
+  </div>
+</header>
+
+<div class="notice" id="sysNotice"></div>
+<div class="notice" id="skipNotice"></div>
+
+<div class="wrap">
+  <div class="cal">
+    <div class="head" id="head"></div>
+    <div class="body" id="body"></div>
+  </div>
+</div>
+
+<div class="hint">
+  <span class="legend"><i class="b"></i>Alap elem – minden héten megjelenik</span>
+  <span class="legend"><i></i>Heti elem – csak az adott héten</span>
+  <span class="legend">⇄ mindkét naptárban látszik</span>
+  <span class="legend">♥ a másik naptárban csak Pannis napokon</span>
+  <br><span class="legend"><i style="background:#fbe6ee;border-left-color:#eaa5ba"></i>Pannis nap – a nap nevére kattintva átállítható</span>
+  <br>Kattints egy üres helyre új bejegyzéshez, vagy egy bejegyzésre a szerkesztéshez. A módosítások automatikusan mentődnek, és minden eszközön ugyanaz látszik. Internet nélkül is megnyílik, a változások a kapcsolat visszatérésekor mentődnek.
+</div>
+
+<div class="overlay" id="overlay">
+  <form class="modal" id="form" autocomplete="off">
+    <h2 id="mTitle">Új bejegyzés</h2>
+    <div class="lockmsg" id="lockMsg">Ez egy alap elem, és az alapok zárolva vannak. Módosításhoz kapcsold be fent az <b>Alapok szerkesztése</b> kapcsolót. Ezen a héten azért kihagyhatod.</div>
+    <div class="lockmsg" id="mirrorMsg" style="background:#f3eefc;color:#5a4890"></div>
+    <div class="field">
+      <label for="fTitle">Megnevezés</label>
+      <input type="text" id="fTitle" maxlength="80" placeholder="pl. Matek, Edzés, Zeneóra">
+    </div>
+    <div class="row field">
+      <div><label for="fDay">Nap</label><select id="fDay"></select></div>
+      <div><label for="fStart">Kezdés</label><input type="time" id="fStart" step="300"></div>
+      <div><label for="fEnd">Vége</label><input type="time" id="fEnd" step="300"></div>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="field">
+      <label>Szín</label>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <div class="field">
+      <label for="fNote">Megjegyzés</label>
+      <textarea id="fNote" rows="2" maxlength="300" placeholder="pl. terem, mit vigyen, ki viszi"></textarea>
+    </div>
+    <div class="field">
+      <label class="switch" id="recWrap">
+        <input type="checkbox" id="fRec"><span class="slider"></span> Hétről hétre ismétlődik (alap elem)
+      </label>
+      <div class="rechint" id="recHint"></div>
+    </div>
+    <div class="field">
+      <label class="switch" id="shWrap"><input type="checkbox" id="fShared"><span class="slider"></span> <span id="shLabel">Látszódjon a másik naptárban is</span></label>
+      <div class="subsw" id="poField">
+        <label class="switch" id="poWrap"><input type="checkbox" id="fPanniOnly"><span class="slider"></span> …de csak Pannis napokon</label>
+        <div class="rechint" id="poHint"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="danger" id="delBtn">Törlés</button>
+      <button type="button" id="skipBtn">Kihagyás ezen a héten</button>
+      <button type="button" id="hideBtn">Elrejtés innen ezen a héten</button>
+      <span class="grow"></span>
+      <button type="button" id="cancelBtn">Mégse</button>
+      <button type="submit" class="primary" id="saveBtn">Mentés</button>
+    </div>
+  </form>
+</div>
+
+<div class="overlay" id="loginOverlay">
+  <div class="modal small" style="text-align:center">
+    <h2>Heti órarend</h2>
+    <p>Lépj be a Google-fiókoddal.</p>
+    <p class="err" id="loginMsg"></p>
+    <button type="button" class="primary" id="loginBtn">Bejelentkezés Google-fiókkal</button>
+  </div>
+</div>
+
+<div class="overlay" id="cOverlay">
+  <div class="modal small" role="alertdialog" aria-labelledby="cMsg">
+    <p id="cMsg"></p>
+    <div class="actions"><span class="grow"></span><button type="button" id="cNo">Mégse</button><button type="button" class="danger-solid" id="cYes">Törlés</button></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, doc as fsDoc, setDoc, deleteDoc, onSnapshot as fsOnSnapshot, getDocFromServer, writeBatch } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+
+{
+  const FB_CONFIG = {
+    apiKey: "AIzaSyDyDRjGBxhe60lT_MZd96avpXZ46ApInhs",
+    authDomain: "orarend-c3435.firebaseapp.com",
+    projectId: "orarend-c3435",
+    storageBucket: "orarend-c3435.firebasestorage.app",
+    messagingSenderId: "13200608200",
+    appId: "1:13200608200:web:1f69c9b41859f03085cefd"
+  };
+  const DAYS = ["Hétfő","Kedd","Szerda","Csütörtök","Péntek","Szombat","Vasárnap"];
+  const MONTHS = ["jan.","febr.","márc.","ápr.","máj.","jún.","júl.","aug.","szept.","okt.","nov.","dec."];
+  const COLORS = [
+    {id:"levendula", bg:"#e8e1f6", bd:"#b9a7e6", ink:"#4c3d7a"},
+    {id:"rozsa",     bg:"#fadbe4", bd:"#eaa5ba", ink:"#7a3450"},
+    {id:"barack",    bg:"#fde3cc", bd:"#f1b585", ink:"#7c4a1e"},
+    {id:"citrom",    bg:"#fbf1bf", bd:"#e5cf6c", ink:"#6b5a12"},
+    {id:"menta",     bg:"#d4f0dc", bd:"#93d1a6", ink:"#2c6040"},
+    {id:"egkek",     bg:"#d5e9f7", bd:"#93c2e4", ink:"#28557a"},
+    {id:"zsalya",    bg:"#e2e8d2", bd:"#b2c08e", ink:"#4c5a2a"},
+    {id:"korall",    bg:"#f9d6d0", bd:"#eba497", ink:"#7d3a2e"}
+  ];
+  const colorOf = id => COLORS.find(c => c.id === id) || COLORS[0];
+  const LOCAL_KEY = "heti_orarend_v3";
+  const CALS = ["panni","gabor"];
+  const CAL_NAMES = {panni:"Panni", gabor:"Gábor"};
+  const PATHS = {panni:{base:"orarend/alap", week:"hetek/"}, gabor:{base:"orarend/alap-gabor", week:"hetek-gabor/"}};
+  const PANNI_REF = new Date(2026,10,2); // ez a hét (nov. 2–8.) Pannis hét
+  const other = c => c === "panni" ? "gabor" : "panni";
+
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2,"0");
+  const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60 + m; };
+  const fromMin = m => pad(Math.floor(m/60)) + ":" + pad(m%60);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+  const lsSet = (k,v) => { try{ localStorage.setItem(k,v); }catch(e){} };
+
+  // ---- megosztott adatok ellenőrzése ----
+  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+  function cleanItem(x, rec){
+    if (!x || typeof x !== "object") return null;
+    const day = Number(x.day);
+    if (!(day >= 0 && day <= 6) || !TIME_RE.test(x.start) || !TIME_RE.test(x.end) || toMin(x.end) <= toMin(x.start)) return null;
+    const it = {id:String(x.id || uid()).slice(0,40), title:String(x.title || "").slice(0,80), day, start:x.start, end:x.end,
+                note:String(x.note || "").slice(0,300), color:colorOf(x.color).id, shared:x.shared === true};
+    it.panniOnly = it.shared && x.panniOnly === true;
+    if (rec){
+      const strs = a => Array.isArray(a) ? a.filter(s => typeof s === "string").slice(-500) : [];
+      it.skip = strs(x.skip);
+      it.mirrorSkip = strs(x.mirrorSkip);
+    }
+    return it;
+  }
+  const cleanList = (a, rec) => (Array.isArray(a) ? a : []).map(x => cleanItem(x, rec)).filter(Boolean);
+  const hourNum = (v, d, lo, hi) => { if (v === null || v === undefined || v === "") return d; v = Number(v); return Number.isInteger(v) && v >= lo && v <= hi ? v : d; };
+  const cleanBase = d => ({recurring: cleanList(d && d.recurring, true), startHour: hourNum(d && d.startHour,7,5,12), endHour: hourNum(d && d.endHour,21,13,24)});
+  function cleanOverrides(o){
+    const r = {};
+    if (o && typeof o === "object") for (const k of Object.keys(o)) if (/^\d{4}-\d{2}-\d{2}$/.test(k) && typeof o[k] === "boolean") r[k] = o[k];
+    return r;
+  }
+
+  // ---- dátum ----
+  function mondayOf(d){ const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay()+6)%7); return x; }
+  function addDays(d,n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+  function keyOf(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+  function isoWeek(d){
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dn = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - dn);
+    const y0 = new Date(Date.UTC(t.getUTCFullYear(),0,1));
+    return Math.ceil(((t - y0)/86400000 + 1)/7);
+  }
+
+  // ---- állapot ----
+  let mode = "loading";          // loading | db | local
+  let db = null, readOnly = false;
+  const D = {panni:{base:cleanBase(null), week:[]}, gabor:{base:cleanBase(null), week:[]}};
+  const unsubWeek = {};
+  let localData = null;
+  let panniOverrides = {};
+  let baseEdit = lsGet("orarend_baseEdit") === "1";
+  const hashCal = location.hash === "#gabor" ? "gabor" : location.hash === "#panni" ? "panni" : null;
+  const storedCal = lsGet("orarend_cal");
+  let cal = hashCal || (storedCal === "gabor" || storedCal === "panni" ? storedCal : "panni");
+  let weekStart = mondayOf(new Date());
+  let editing = null;            // {id, rec, home}
+  const wk = () => keyOf(weekStart);
+
+  // ---- állapotjelző ----
+  let pending = 0, loadTimer = null;
+  function setStatus(){
+    const el = $("status");
+    let cls = "", txt = "Mentve";
+    if (mode === "loading"){ cls = "loading"; txt = "Betöltés…"; }
+    
+    else if (readOnly){ cls = "warn"; txt = "Csak megtekintés"; }
+    else if (pending > 0){ cls = "saving"; txt = "Mentés…"; }
+    el.className = "status " + cls; el.textContent = txt;
+  }
+  function sysNotice(msg){ const n = $("sysNotice"); n.textContent = msg || ""; n.style.display = msg ? "block" : "none"; }
+
+  // ---- tárolás ----
+  const queues = {};
+  function persist(path, data){
+    if (mode === "local"){ lsSet(LOCAL_KEY, JSON.stringify(localData)); return; }
+    if (mode !== "db" || readOnly) return;
+    pending++; setStatus();
+    const ref = db.doc(path);
+    const run = (retry) => (data ? ref.set(data) : ref.delete()).catch(e => {
+      if (e && e.code === "unavailable" && retry) return new Promise(r => setTimeout(r, 800 + Math.random()*800)).then(() => run(false));
+      throw e;
+    });
+    queues[path] = (queues[path] || Promise.resolve()).then(() => run(true)).catch(e => {
+      const c = e && e.code;
+      if (c === "invalid_argument" || c === "not_granted"){ sysNotice("Ezt a módosítást a szerver nem fogadta el (nincs jogosultság). Töltsd újra az oldalt."); }
+      else if (c === "quota_exceeded") sysNotice("Betelt a tárhely, ezért a legutóbbi módosítás nem mentődött. Törölj néhány régi bejegyzést.");
+      else sysNotice("Egy módosítás most nem mentődött (nincs kapcsolat). Próbáld újra kicsit később.");
+    }).finally(() => { pending--; setStatus(); });
+  }
+  function saveBase(c){
+    const b = D[c].base;
+    if (mode === "local") localData[c].base = b;
+    persist(PATHS[c].base, {recurring:b.recurring, startHour:b.startHour, endHour:b.endHour});
+  }
+  function saveWeek(c){
+    const k = wk(), w = D[c].week;
+    if (mode === "local"){ if (w.length) localData[c].weeks[k] = w; else delete localData[c].weeks[k]; }
+    persist(PATHS[c].week + k, w.length ? {items:w} : null);
+  }
+
+  function loadWeeks(){
+    const k = wk();
+    for (const c of CALS){
+      if (mode === "local"){ D[c].week = cleanList(localData[c].weeks[k], false); continue; }
+      if (mode !== "db") continue;
+      if (unsubWeek[c]) unsubWeek[c]();
+      D[c].week = [];
+      unsubWeek[c] = db.doc(PATHS[c].week + k).onSnapshot(s => {
+        if (k !== wk()) return;
+        D[c].week = s.exists ? cleanList(s.data().items, false) : [];
+        render();
+      }, () => sysNotice("Ennek a hétnek az adatai most nem érhetők el."));
+    }
+  }
+  function loadBases(){
+    if (mode === "local"){ CALS.forEach(c => D[c].base = localData[c].base); return; }
+    if (mode !== "db") return;
+    const waiting = new Set(CALS);
+    loadTimer = setTimeout(() => sysNotice("Az adatok még nem töltődtek be teljesen, lehet, hogy amit látsz, nem a legfrissebb."), 10000);
+    for (const c of CALS){
+      db.doc(PATHS[c].base).onSnapshot(s => {
+        if (!s.metadata.fromCache){
+          waiting.delete(c);
+          if (!waiting.size && loadTimer){ clearTimeout(loadTimer); loadTimer = null; if (!readOnly) sysNotice(""); }
+        }
+        D[c].base = cleanBase(s.exists ? s.data() : null);
+        render();
+      }, () => { if (loadTimer){ clearTimeout(loadTimer); loadTimer = null; } sysNotice("Az órarend most nem érhető el. Töltsd újra az oldalt kicsit később."); });
+    }
+  }
+
+  // ---- Pannis napok ----
+  function panniDefault(d){ const n = Math.round((mondayOf(d) - PANNI_REF) / (7*86400000)); return ((n % 2) + 2) % 2 === 0; }
+  function isPanni(d){ const k = keyOf(d); return Object.prototype.hasOwnProperty.call(panniOverrides, k) ? panniOverrides[k] : panniDefault(d); }
+  function setPanni(dates, val){
+    for (const d of dates){ const k = keyOf(d); if (val === panniDefault(d)) delete panniOverrides[k]; else panniOverrides[k] = val; }
+    if (mode === "local") localData.panniDays = panniOverrides;
+    persist("orarend/panni-napok", {overrides: panniOverrides});
+  }
+
+  // ---- Firebase ----
+  let fs = null, auth = null, started = false;
+  const ERR = {"permission-denied":"not_granted", "unauthenticated":"not_granted", "resource-exhausted":"quota_exceeded", "invalid-argument":"invalid_argument"};
+  const mapErr = e => ({code: ERR[e && e.code] || "unavailable", message: e && e.message});
+  function makeDb(){
+    return { doc: path => {
+      const r = fsDoc(fs, path);
+      return {
+        set: d => setDoc(r, d).catch(e => { throw mapErr(e); }),
+        delete: () => deleteDoc(r).catch(e => { throw mapErr(e); }),
+        onSnapshot: (next, err) => fsOnSnapshot(r, {includeMetadataChanges:true},
+          s => next({exists: s.exists(), data: () => s.data(), metadata: s.metadata}),
+          e => err && err(mapErr(e)))
+      };
+    }};
+  }
+  // ---- egyszeri adatátköltöztetés fájlból (csak ha a Firebase még üres) ----
+  async function offerImportIfEmpty(){
+    try{
+      const s = await getDocFromServer(fsDoc(fs, "orarend/alap"));
+      if (s.exists()) return;
+    }catch(e){ return; }
+    const n = $("sysNotice");
+    n.innerHTML = 'Az órarend még üres. Ha van régi mentésed (atkoltoztetes.json), töltsd be: <button id="importBtn">Régi adatok betöltése</button><input type="file" id="importFile" accept=".json,application/json" hidden>';
+    n.style.display = "block";
+    $("importBtn").onclick = () => $("importFile").click();
+    $("importFile").onchange = e => {
+      const f = e.target.files[0]; if (!f) return;
+      const rd = new FileReader();
+      rd.onload = async () => {
+        try{
+          const d = JSON.parse(rd.result);
+          if (!d || !d.alap || !Array.isArray(d.alap.recurring)) throw 0;
+          const chk = await getDocFromServer(fsDoc(fs, "orarend/alap"));
+          if (chk.exists()){ sysNotice("Az órarendben már vannak adatok, a betöltést kihagytam."); return; }
+          const b = writeBatch(fs);
+          const base = cleanBase(d.alap);
+          b.set(fsDoc(fs, "orarend/alap"), {recurring: base.recurring, startHour: base.startHour, endHour: base.endHour});
+          if (d.alapGabor){ const g = cleanBase(d.alapGabor); b.set(fsDoc(fs, "orarend/alap-gabor"), {recurring: g.recurring, startHour: g.startHour, endHour: g.endHour}); }
+          for (const [coll, src] of [["hetek", d.hetek], ["hetek-gabor", d.hetekGabor]]){
+            if (!src || typeof src !== "object") continue;
+            for (const k of Object.keys(src)){
+              if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) continue;
+              const items = cleanList(src[k], false);
+              if (items.length) b.set(fsDoc(fs, coll + "/" + k), {items});
+            }
+          }
+          await b.commit();
+          sysNotice("");
+        }catch(err){ sysNotice("Ez a fájl nem érvényes órarend-mentés, vagy a mentés nem sikerült."); }
+      };
+      rd.readAsText(f);
+    };
+  }
+
+  function showLogin(msg){
+    if (msg !== undefined) $("loginMsg").textContent = msg;
+    $("loginOverlay").classList.add("open");
+  }
+  async function login(){
+    $("loginMsg").textContent = "";
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({prompt: "select_account"});
+    try{ await signInWithPopup(auth, provider); }
+    catch(e){
+      const c = e && e.code;
+      if (c === "auth/popup-blocked" || c === "auth/operation-not-supported-in-this-environment") { try{ await signInWithRedirect(auth, provider); }catch(e2){ showLogin("A bejelentkezés nem sikerült (" + (e2.code || "hiba") + ")."); } }
+      else if (c !== "auth/popup-closed-by-user" && c !== "auth/cancelled-popup-request") showLogin("A bejelentkezés nem sikerült (" + (c || "hiba") + ").");
+    }
+  }
+  $("loginBtn").onclick = login;
+  $("logoutBtn").onclick = () => signOut(auth).then(() => location.reload());
+
+  async function start(email){
+    if (started) return;
+    started = true;
+    db = makeDb(); mode = "db"; render();
+    offerImportIfEmpty();
+    db.doc("orarend/panni-napok").onSnapshot(sn => {
+      panniOverrides = cleanOverrides(sn.exists ? sn.data().overrides : null);
+      render();
+    }, () => {});
+    loadBases(); loadWeeks(); render();
+  }
+
+  async function init(){
+    render();
+    const app = initializeApp(FB_CONFIG);
+    auth = getAuth(app);
+    try{ fs = initializeFirestore(app, {localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})}); }
+    catch(e){ fs = getFirestore(app); }
+    getRedirectResult(auth).catch(e => showLogin("A bejelentkezés nem sikerült (" + (e.code || "hiba") + ")."));
+    onAuthStateChanged(auth, async u => {
+      if (!u){ $("userBox").textContent = ""; $("logoutBtn").style.display = "none"; showLogin(); return; }
+      const email = (u.email || "").toLowerCase();
+      // hozzáférés-ellenőrzés: ha a Firebase szabályai nem engedik, ezzel a fiókkal nem lehet olvasni
+      try{ await getDocFromServer(fsDoc(fs, "orarend/panni-napok")); }
+      catch(e){
+        if (e && e.code === "permission-denied"){
+          showLogin("Ezzel a fiókkal (" + email + ") nincs hozzáférésed. Válaszd a saját fiókodat.");
+          await signOut(auth); return;
+        }
+      }
+      $("loginOverlay").classList.remove("open");
+      $("userBox").textContent = u.displayName || email;
+      $("logoutBtn").style.display = "";
+      start(email);
+    });
+  }
+
+  // ---- megjelenítés ----
+  function weekEvents(){
+    const k = wk(), list = [];
+    for (const c of CALS){
+      const mirror = c !== cal;
+      for (const r of D[c].base.recurring){
+        if ((r.skip||[]).includes(k) || (mirror && (!r.shared || (r.mirrorSkip||[]).includes(k)))) continue;
+        list.push({...r, rec:true, home:c, mirror});
+      }
+      for (const e of D[c].week){
+        if (mirror && !e.shared) continue;
+        list.push({...e, rec:false, home:c, mirror});
+      }
+    }
+    return list;
+  }
+
+  function layoutDay(evs){
+    evs.sort((a,b) => a.s - b.s || b.e - a.e);
+    const clusters = []; let cur = [], curEnd = -1;
+    for (const ev of evs){
+      if (cur.length && ev.s >= curEnd){ clusters.push(cur); cur = []; curEnd = -1; }
+      cur.push(ev); curEnd = Math.max(curEnd, ev.e);
+    }
+    if (cur.length) clusters.push(cur);
+    for (const c of clusters){
+      const ends = [];
+      for (const ev of c){
+        let i = ends.findIndex(end => end <= ev.s);
+        if (i < 0){ i = ends.length; ends.push(0); }
+        ends[i] = ev.e; ev.col = i;
+      }
+      c.forEach(ev => ev.cols = ends.length);
+    }
+  }
+
+  function render(){
+    setStatus();
+    const base = D[cal].base;
+    $("calTitle").textContent = CAL_NAMES[cal] + " órarendje";
+    document.title = CAL_NAMES[cal] + " órarendje";
+    document.querySelectorAll("#calSwitch button").forEach(b => b.classList.toggle("on", b.dataset.cal === cal));
+    const wdays = [0,1,2,3,4,5,6].map(i => addDays(weekStart, i));
+    const pFlags = wdays.map(isPanni), pCount = pFlags.filter(Boolean).length;
+    const pill = $("panniPill");
+    pill.className = "ppill" + (pCount === 7 ? " yes" : pCount ? " part" : "");
+    pill.textContent = pCount === 7 ? "♥ Pannis hét" : pCount ? "♥ Pannis napok: " + pCount + "/7" : "Nem Pannis hét";
+    pill.disabled = readOnly;
+
+    const k = wk(), end = wdays[6];
+    const sameMonth = weekStart.getMonth() === end.getMonth();
+    $("range").innerHTML = weekStart.getFullYear() + ". " + MONTHS[weekStart.getMonth()] + " " + weekStart.getDate() + ". – " +
+      (sameMonth ? "" : MONTHS[end.getMonth()] + " ") + end.getDate() + "." + "<small>" + isoWeek(weekStart) + ". hét</small>";
+
+    $("hStart").value = base.startHour; $("hEnd").value = base.endHour;
+    $("hStart").disabled = $("hEnd").disabled = readOnly;
+    $("baseEdit").checked = baseEdit; $("baseEdit").disabled = readOnly;
+
+    const evs = weekEvents()
+      .filter(e => !(e.mirror && e.panniOnly && !pFlags[e.day]))
+      .map(e => ({...e, s:toMin(e.start), e:toMin(e.end)}));
+    let vs = base.startHour, ve = base.endHour;
+    evs.forEach(e => { vs = Math.min(vs, Math.floor(e.s/60)); ve = Math.max(ve, Math.ceil(e.e/60)); });
+    const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour-h")) || 56;
+    const height = (ve - vs) * hourH;
+
+    const todayKey = keyOf(new Date());
+    let head = "<div></div>";
+    for (let i=0;i<7;i++){
+      const d = wdays[i], t = keyOf(d) === todayKey;
+      head += '<div data-i="'+i+'" title="'+(readOnly ? "" : "Kattints: Pannis nap be/ki")+'" class="dh'+(t?" today":"")+(pFlags[i]?" panni":"")+(readOnly?" ro":"")+'"><div class="dname">'+DAYS[i]+'</div><div class="ddate">'+(pFlags[i]?'<span class="heart">♥</span>':"")+MONTHS[d.getMonth()]+" "+d.getDate()+'.</div></div>';
+    }
+    $("head").innerHTML = head;
+
+    const body = $("body"); body.innerHTML = "";
+    const times = document.createElement("div"); times.className = "times"; times.style.height = height+"px";
+    for (let h=vs+1; h<ve; h++){ const s = document.createElement("span"); s.style.top = (h-vs)*hourH+"px"; s.textContent = h+":00"; times.appendChild(s); }
+    body.appendChild(times);
+
+    for (let i=0;i<7;i++){
+      const d = wdays[i];
+      const col = document.createElement("div");
+      col.className = "day" + (keyOf(d)===todayKey ? " today" : "") + (i>=5 ? " weekend" : "") + (pFlags[i] ? " panni" : "");
+      col.style.height = height+"px";
+      if (readOnly || mode === "loading") col.style.cursor = "default";
+      col.addEventListener("click", ev => {
+        if (ev.target !== col || readOnly || mode === "loading") return;
+        const y = ev.clientY - col.getBoundingClientRect().top;
+        const m = Math.min(vs*60 + Math.floor(y/hourH*2)*30, 23*60);
+        openModal(null, {day:i, start:fromMin(m), end:fromMin(Math.min(m+60, 23*60+59))});
+      });
+
+      const dayEvs = evs.filter(e => e.day === i);
+      layoutDay(dayEvs);
+      for (const e of dayEvs){
+        const c = colorOf(e.color), el = document.createElement("div");
+        el.className = "ev" + (e.rec ? " base" : "") + (e.mirror ? " mirror" : "");
+        const w = 100 / e.cols;
+        el.style.cssText = "top:"+((e.s - vs*60)/60*hourH+1)+"px;height:"+Math.max(18,(e.e-e.s)/60*hourH-2)+"px;left:calc("+(w*e.col)+"% + 3px);width:calc("+w+"% - 6px);background-color:"+c.bg+";border-color:"+c.bd+";color:"+c.ink;
+        const icons = (e.rec ? "↻" : "") + (e.shared && !e.mirror ? " ⇄" : "") + (e.panniOnly ? " ♥" : "");
+        el.title = e.title + " (" + e.start + "–" + e.end + ")" + (e.note ? "\n" + e.note : "") +
+          (e.mirror ? "\n" + CAL_NAMES[e.home] + " naptárából" : "") + (e.rec ? "\nAlap elem – minden héten" : "") +
+          (e.shared && !e.mirror ? "\n" + CAL_NAMES[other(e.home)] + " naptárában is látszik" + (e.panniOnly ? " (csak Pannis napokon)" : "") : "");
+        el.innerHTML = (icons ? '<span class="rec">'+icons.trim()+'</span>' : "") +
+          '<div class="t">' + (e.mirror ? '<span class="who">'+CAL_NAMES[e.home]+'</span>' : "") + esc(e.title) + '</div><div class="h">'+e.start+"–"+e.end+"</div>" +
+          (e.note ? '<div class="n">'+esc(e.note)+"</div>" : "");
+        el.addEventListener("click", ev => { ev.stopPropagation(); openModal(e); });
+        col.appendChild(el);
+      }
+
+      if (keyOf(d) === todayKey){
+        const now = new Date(), nm = now.getHours()*60 + now.getMinutes();
+        if (nm >= vs*60 && nm <= ve*60){
+          const ln = document.createElement("div"); ln.className = "nowline"; ln.style.top = (nm - vs*60)/60*hourH + "px"; col.appendChild(ln);
+        }
+      }
+      body.appendChild(col);
+    }
+
+    const skipped = base.recurring.filter(r => (r.skip||[]).includes(k));
+    const oc = other(cal);
+    const hidden = D[oc].base.recurring.filter(r => r.shared && (r.mirrorSkip||[]).includes(k));
+    const n = $("skipNotice");
+    let html = "";
+    if (skipped.length) html += "Ezen a héten kihagyva: " + skipped.map(r => esc(r.title)).join(", ") + (readOnly ? "" : ' <button id="restoreSkip">Visszaállítás</button>');
+    if (hidden.length) html += (html ? "<br>" : "") + "Ezen a héten innen elrejtve (" + CAL_NAMES[oc] + " naptárában megmaradt): " + hidden.map(r => esc(r.title)).join(", ") + (readOnly ? "" : ' <button id="restoreHide">Visszaállítás</button>');
+    n.innerHTML = html; n.style.display = html ? "block" : "none";
+    if (!readOnly && skipped.length) $("restoreSkip").onclick = () => { skipped.forEach(r => r.skip = r.skip.filter(x => x !== k)); saveBase(cal); render(); };
+    if (!readOnly && hidden.length) $("restoreHide").onclick = () => { hidden.forEach(r => r.mirrorSkip = r.mirrorSkip.filter(x => x !== k)); saveBase(oc); render(); };
+  }
+
+  // ---- megerősítő ablak ----
+  let confirmResolve = null;
+  function askConfirm(msg, yes){
+    $("cMsg").textContent = msg; $("cYes").textContent = yes || "Törlés";
+    $("cOverlay").classList.add("open"); setTimeout(() => $("cNo").focus(), 30);
+    return new Promise(r => confirmResolve = r);
+  }
+  function closeConfirm(v){ $("cOverlay").classList.remove("open"); if (confirmResolve){ confirmResolve(v); confirmResolve = null; } }
+  $("cYes").onclick = () => closeConfirm(true);
+  $("cNo").onclick = () => closeConfirm(false);
+  $("cOverlay").addEventListener("mousedown", e => { if (e.target === $("cOverlay")) closeConfirm(false); });
+
+  // ---- szerkesztő ablak ----
+  const fDay = $("fDay");
+  DAYS.forEach((d,i) => fDay.add(new Option(d, i)));
+  $("swatches").innerHTML = COLORS.map(c => '<label title="'+c.id+'"><input type="radio" name="color" value="'+c.id+'"><span style="background:'+c.bg+';box-shadow:inset 0 0 0 2px '+c.bd+'"></span></label>').join("");
+
+  function setRecHint(){
+    const on = $("fRec").checked;
+    let t;
+    if (!editing) t = on ? "Minden héten megjelenik, amíg nem törlöd." : "Csak ezen a héten jelenik meg.";
+    else if (editing.rec) t = on ? "A módosítás minden hétre érvényes." : "Kikapcsolva már nem ismétlődik: csak ezen a héten marad meg.";
+    else t = on ? "Bekapcsolva alap elem lesz, és minden héten megjelenik." : "Csak ezen a héten jelenik meg.";
+    if (!baseEdit && !(editing && editing.rec)) t = "Alap elem felvételéhez kapcsold be fent az Alapok szerkesztését.";
+    if (readOnly) t = "";
+    $("recHint").textContent = t;
+    setShHint();
+  }
+  function setShHint(){
+    const home = editing ? editing.home : cal;
+    $("poField").style.display = $("fShared").checked ? "" : "none";
+    $("poHint").textContent = CAL_NAMES[other(home)] + " naptárában csak azokon a napokon látszik, amikor Panni nálad van. " + CAL_NAMES[home] + " naptárában mindig látszik.";
+  }
+
+  function openModal(ev, preset){
+    const home = ev ? ev.home : cal;
+    editing = ev ? {id:ev.id, rec:ev.rec, home} : null;
+    const d = ev || Object.assign({title:"", note:"", color:COLORS[0].id, shared:false, panniOnly:false}, preset);
+    $("mTitle").textContent = ev ? (ev.rec ? "Alap elem" : "Bejegyzés szerkesztése") : "Új bejegyzés – " + CAL_NAMES[cal];
+    $("fTitle").value = d.title; fDay.value = d.day; $("fStart").value = d.start; $("fEnd").value = d.end; $("fNote").value = d.note || "";
+    (document.querySelector('input[name=color][value="'+d.color+'"]') || document.querySelector('input[name=color]')).checked = true;
+    $("fRec").checked = ev ? ev.rec : false;
+    $("fShared").checked = !!d.shared;
+    $("fPanniOnly").checked = !!d.panniOnly;
+    $("shLabel").textContent = "Látszódjon " + CAL_NAMES[other(home)] + " naptárában is";
+    $("err").textContent = "";
+
+    const mm = $("mirrorMsg");
+    if (ev && ev.mirror){ mm.textContent = "Ez a bejegyzés " + CAL_NAMES[home] + " naptárából látszik itt. Ha módosítod, ott is módosul."; mm.style.display = "block"; }
+    else mm.style.display = "none";
+
+    const locked = readOnly || !!(ev && ev.rec && !baseEdit);
+    ["fTitle","fDay","fStart","fEnd","fNote","fShared","fPanniOnly"].forEach(id => $(id).disabled = locked);
+    $("shWrap").classList.toggle("disabled", locked); $("poWrap").classList.toggle("disabled", locked);
+    document.querySelectorAll('input[name=color]').forEach(r => r.disabled = locked);
+    const recDisabled = locked || (!baseEdit && !(ev && ev.rec));
+    $("fRec").disabled = recDisabled; $("recWrap").classList.toggle("disabled", recDisabled);
+    $("lockMsg").style.display = locked && !readOnly ? "block" : "none";
+    $("saveBtn").style.display = locked ? "none" : "";
+    $("delBtn").style.display = ev && !locked ? "" : "none";
+    $("skipBtn").style.display = ev && ev.rec && !ev.mirror && !readOnly ? "" : "none";
+    $("hideBtn").style.display = ev && ev.mirror && !readOnly ? "" : "none";
+    $("hideBtn").textContent = ev && ev.rec ? "Elrejtés innen ezen a héten" : "Elrejtés innen";
+    $("cancelBtn").textContent = locked ? "Bezárás" : "Mégse";
+    setRecHint();
+
+    $("overlay").classList.add("open");
+    if (!locked) setTimeout(() => $("fTitle").focus(), 30);
+  }
+  function closeModal(){ $("overlay").classList.remove("open"); editing = null; }
+
+  $("fRec").addEventListener("change", setRecHint);
+  $("fShared").addEventListener("change", setShHint);
+  $("cancelBtn").onclick = closeModal;
+  $("overlay").addEventListener("mousedown", e => { if (e.target === $("overlay")) closeModal(); });
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    if ($("cOverlay").classList.contains("open")) closeConfirm(false);
+    else if ($("overlay").classList.contains("open")) closeModal();
+  });
+
+  $("form").addEventListener("submit", e => {
+    e.preventDefault();
+    if (readOnly) return;
+    const title = $("fTitle").value.trim(), start = $("fStart").value, end = $("fEnd").value;
+    if (!title){ $("err").textContent = "Adj meg egy megnevezést."; $("fTitle").focus(); return; }
+    if (!start || !end){ $("err").textContent = "Add meg a kezdést és a véget."; return; }
+    if (toMin(end) <= toMin(start)){ $("err").textContent = "A vége legyen később, mint a kezdés."; return; }
+    const data = {title, day:Number(fDay.value), start, end, note:$("fNote").value.trim(),
+                  color:(document.querySelector('input[name=color]:checked')||{}).value || COLORS[0].id, shared:$("fShared").checked};
+    data.panniOnly = data.shared && $("fPanniOnly").checked;
+    const recData = () => ({...data});
+    const rec = $("fRec").checked;
+    const c = editing ? editing.home : cal;
+    const B = D[c].base, W = D[c].week;
+    let baseChanged = false, weekChanged = false;
+
+    if (!editing){
+      if (rec){ B.recurring.push({id:uid(), ...recData(), skip:[], mirrorSkip:[]}); baseChanged = true; }
+      else { W.push({id:uid(), ...data}); weekChanged = true; }
+    } else if (editing.rec){
+      const i = B.recurring.findIndex(r => r.id === editing.id);
+      if (rec){ if (i>=0) Object.assign(B.recurring[i], recData()); baseChanged = true; }
+      else { if (i>=0) B.recurring.splice(i,1); W.push({id:uid(), ...data}); baseChanged = weekChanged = true; }
+    } else {
+      const i = W.findIndex(x => x.id === editing.id);
+      if (rec){ if (i>=0) W.splice(i,1); B.recurring.push({id:uid(), ...recData(), skip:[], mirrorSkip:[]}); baseChanged = weekChanged = true; }
+      else { if (i>=0) Object.assign(W[i], data); weekChanged = true; }
+    }
+    if (baseChanged) saveBase(c);
+    if (weekChanged) saveWeek(c);
+    closeModal(); render();
+  });
+
+  $("delBtn").onclick = async () => {
+    if (!editing || readOnly) return;
+    const ed = editing, c = ed.home;
+    if (ed.rec){
+      if (!await askConfirm("Biztosan törlöd ezt az alap elemet minden hétről?\nHa csak ezen a héten nincs, használd inkább a „Kihagyás ezen a héten” gombot.")) return;
+      D[c].base.recurring = D[c].base.recurring.filter(r => r.id !== ed.id); saveBase(c);
+    } else {
+      D[c].week = D[c].week.filter(x => x.id !== ed.id); saveWeek(c);
+    }
+    closeModal(); render();
+  };
+  $("skipBtn").onclick = () => {
+    if (readOnly || !editing) return;
+    const c = editing.home, k = wk();
+    const r = D[c].base.recurring.find(r => r.id === editing.id);
+    if (r && !r.skip.includes(k)){ r.skip.push(k); saveBase(c); }
+    closeModal(); render();
+  };
+
+  $("hideBtn").onclick = () => {
+    if (readOnly || !editing) return;
+    const c = editing.home, k = wk();
+    if (editing.rec){
+      const r = D[c].base.recurring.find(r => r.id === editing.id);
+      if (r && !r.mirrorSkip.includes(k)){ r.mirrorSkip.push(k); saveBase(c); }
+    } else {
+      const it = D[c].week.find(x => x.id === editing.id);
+      if (it){ it.shared = false; it.panniOnly = false; saveWeek(c); }
+    }
+    closeModal(); render();
+  };
+
+  // ---- fejléc ----
+  $("head").addEventListener("click", e => {
+    const c = e.target.closest(".dh");
+    if (!c || readOnly || mode === "loading") return;
+    const d = addDays(weekStart, Number(c.dataset.i));
+    setPanni([d], !isPanni(d)); render();
+  });
+  $("panniPill").onclick = () => {
+    if (readOnly || mode === "loading") return;
+    const days = [0,1,2,3,4,5,6].map(i => addDays(weekStart, i));
+    setPanni(days, days.filter(isPanni).length !== 7); render();
+  };
+  function setCal(c){
+    if (!CAL_NAMES[c] || c === cal) return;
+    cal = c; lsSet("orarend_cal", c);
+    try{ if (location.hash !== "#" + c) location.hash = c; }catch(e){}
+    closeModal(); render();
+  }
+  document.querySelectorAll("#calSwitch button").forEach(b => b.onclick = () => setCal(b.dataset.cal));
+  window.addEventListener("hashchange", () => setCal(location.hash.slice(1)));
+
+  function goWeek(d){ weekStart = d; loadWeeks(); render(); }
+  $("prev").onclick = () => goWeek(addDays(weekStart,-7));
+  $("next").onclick = () => goWeek(addDays(weekStart, 7));
+  $("todayBtn").onclick = () => goWeek(mondayOf(new Date()));
+  $("baseEdit").onchange = e => { baseEdit = e.target.checked; lsSet("orarend_baseEdit", baseEdit ? "1" : "0"); };
+
+  for (let h=5; h<=12; h++) $("hStart").add(new Option(h+":00", h));
+  for (let h=13; h<=24; h++) $("hEnd").add(new Option(h+":00", h));
+  $("hStart").onchange = e => { D[cal].base.startHour = Number(e.target.value); saveBase(cal); render(); };
+  $("hEnd").onchange = e => { D[cal].base.endHour = Number(e.target.value); saveBase(cal); render(); };
+
+  setInterval(render, 60000);
+  init();
+}
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>

@@ -179,6 +179,7 @@
 </header>
 
 <div class="notice" id="sysNotice"></div>
+<div class="notice" id="importNotice" style="display:none;background:#eef6ef;color:#2c6040"></div>
 <div class="notice" id="skipNotice"></div>
 
 <div class="wrap">
@@ -458,7 +459,7 @@ import { initializeFirestore, getFirestore, persistentLocalCache, persistentMult
       const s = await getDocFromServer(fsDoc(fs, "orarend/alap"));
       if (s.exists()) return;
     }catch(e){ return; }
-    const n = $("sysNotice");
+    const n = $("importNotice");
     n.innerHTML = 'Az órarend még üres. Ha van régi mentésed (atkoltoztetes.json), töltsd be: <button id="importBtn">Régi adatok betöltése</button><input type="file" id="importFile" accept=".json,application/json" hidden>';
     n.style.display = "block";
     $("importBtn").onclick = () => $("importFile").click();
@@ -470,7 +471,7 @@ import { initializeFirestore, getFirestore, persistentLocalCache, persistentMult
           const d = JSON.parse(rd.result);
           if (!d || !d.alap || !Array.isArray(d.alap.recurring)) throw 0;
           const chk = await getDocFromServer(fsDoc(fs, "orarend/alap"));
-          if (chk.exists()){ sysNotice("Az órarendben már vannak adatok, a betöltést kihagytam."); return; }
+          if (chk.exists()){ n.textContent = "Az órarendben már vannak adatok, a betöltést kihagytam."; return; }
           const b = writeBatch(fs);
           const base = cleanBase(d.alap);
           b.set(fsDoc(fs, "orarend/alap"), {recurring: base.recurring, startHour: base.startHour, endHour: base.endHour});
@@ -484,8 +485,9 @@ import { initializeFirestore, getFirestore, persistentLocalCache, persistentMult
             }
           }
           await b.commit();
-          sysNotice("");
-        }catch(err){ sysNotice("Ez a fájl nem érvényes órarend-mentés, vagy a mentés nem sikerült."); }
+          n.textContent = "Kész, a régi adatok betöltődtek.";
+          setTimeout(() => { n.style.display = "none"; }, 6000);
+        }catch(err){ n.textContent = "Ez a fájl nem érvényes órarend-mentés, vagy a mentés nem sikerült (" + ((err && err.code) || "hiba") + ")."; }
       };
       rd.readAsText(f);
     };
